@@ -58,3 +58,6 @@ def forward_test(steps, delay):
     motor = stepper(pi, 26, 13, 19, 6)
     motor.steps_forward(steps, delay)
     motor.cleanup()
+
+if __name__ == "__main__":
+    pass
