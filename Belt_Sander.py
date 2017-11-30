@@ -47,8 +47,10 @@ if __name__ == "__main__":
     pi = pigpio.pi()
     sonar_queue = Queue.Queue()
     sonar = ranger(pi=pi, trigger=22, echo=5, queue=sonar_queue)
+    gui_left = 17
+    gui_up = 27
+    gui_right = 6
+    gui_down = 13
+    gui_select = 16
+    pi.set_pull_up_down(gpio=gui_left, pud=pigpio.PUD_UP)
 
-    lcd = RPi_I2C_driver.lcd()
-    lcd.lcd_display_string("Belt Sander ON", 1)
-    time.sleep(.5)
-    lcd.lcd_clear()
