@@ -6,7 +6,7 @@ import pigpio
 class gui:
     def __init__(self, pi, left, right, up, down, select):
         self.pi = pi
-        self.run_display = [" Belt Speed: ", " Thickness: ", " Direction: ", " Home Belt"]
+        self.run_display = [" Sand Speed: ", " Belt Speed: ", " Thickness: ", " Direction: ", " Home Belt"]
         self.left = left
         self.right = right
         self.up = up
