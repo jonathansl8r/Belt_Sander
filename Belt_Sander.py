@@ -6,8 +6,6 @@ import time
 from Microstep_Driver import stepper
 from Sonar import ranger
 
-#i2c Driver: https://gist.github.com/DenisFromHR/cc863375a6e19dce359d
-
 class belt_sander(threading.Thread):
     def __init__(self, sonar, sonar_queue):
         self.sonar = sonar
