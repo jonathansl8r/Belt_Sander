@@ -5,6 +5,7 @@ Made available under GNU GENERAL PUBLIC LICENSE
 
 # Modified Python I2C library for Raspberry Pi
 # as found on http://www.recantha.co.uk/blog/?p=4849
+#i2c Driver: https://gist.github.com/DenisFromHR/cc863375a6e19dce359d
 # Joined existing 'i2c_lib.py' and 'lcddriver.py' into a single library
 # added bits and pieces from various sources
 # By DenisFromHR (Denis Pleic)
@@ -51,7 +52,7 @@ class i2c_device:
 
 
 # LCD Address
-ADDRESS = 0x27
+ADDRESS = 0x20 #sudo i2cdetect -y 1 <-- bash line to determine i2c address
 
 # commands
 LCD_CLEARDISPLAY = 0x01
