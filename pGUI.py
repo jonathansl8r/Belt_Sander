@@ -37,16 +37,30 @@ class pgui:
             print s[0]
             print s[1]
 
-    def _cbf(self, screen, command):
-        if command == 1:
+    def enter(self, state):
+        if state == "HOME":
             pass
+
+    def _cbf(self, state, command):
+        if state == "HOME":
+            screen = self.home
+        else:
+            screen = None
+            print "Invalid state"
+
+        if command == 1 or command == -1:
+            self.pscroll(screen, command)
+        elif command == 2 or command == -2:
+            print "L/R -- Not programmed"
+        elif command == 3:
+            self.enter(state)
 
 def test():
     gui = pgui()
     gui.pwelcome()
     print "\n"
     time.sleep(.5)
-    print"HOME"
+    state = "HOME"
     gui.pscreen_home(gui.run_display)
     print"\n"
     time.sleep(.5)
@@ -65,7 +79,7 @@ def test():
         elif i == "d":
             i = 2
 
-        gui.pscroll(gui.run_display, i)
+        gui._cbf(state, i)
         print "\n"
 
     print "TEST COMPLETE..."
