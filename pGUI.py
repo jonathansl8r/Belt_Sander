@@ -4,8 +4,8 @@ class pgui:
     def __init__(self):
         self.cursor = 0
         self.loc = 0  # variable to track index of top LCD line
-        self.home = {"Sand Speed":0, "Belt Speed":0, "Thickness":0, "Direction":1, "Home Belt":False}
         self.run_display = [" Sand Speed:", " Belt Speed:", " Thickness:", " Direction:", " Home Belt"]
+        self.top = True
 
     def pwelcome(self): #print welcome
         print("---- SANDER ----")
@@ -37,12 +37,12 @@ class pgui:
             print s[0]
             print s[1]
 
-    def _cbf(self, gpio):
-        if gpio == 1:
-            pass
+    def value_set(self, dir):
+        pass
 
 def test():
     gui = pgui()
+    commands = [-1, -1, 1, -1, -1, -1, -1, 1, -1, -1, 3, -1]
     gui.pwelcome()
     print "\n"
     time.sleep(.5)
@@ -50,22 +50,16 @@ def test():
     gui.pscreen_home(gui.run_display)
     print"\n"
     time.sleep(.5)
-    i = None
-
-    while not i == "exit":
-        i = raw_input("Command: ")
-        if i == "w":
-            i = 1
-        elif i == "s":
-            i = -1
-        elif i == "e":
-            i = 3
-        elif i == "a":
-            i = -2
-        elif i == "d":
-            i = 2
+    for i in commands:
+        if i==1:
+            print "Up"
+        elif i==-1:
+            print "Down"
+        else:
+            print "Bad Input"
 
         gui.pscroll(gui.run_display, i)
-        print "\n"
+        print("\n")
+        time.sleep(.5)
 
     print "TEST COMPLETE..."
