@@ -5,7 +5,7 @@ class pgui:
         self.cursor = 0
         self.loc = 0  # variable to track index of top LCD line
         self.home = {"Sand Speed":0, "Belt Speed":0, "Thickness":0, "Direction":1, "Home Belt":False}
-        self.run_display = [" Sand Speed:", " Belt Speed:", " Thickness:", " Direction:", " Home Belt"]
+        self.home_screen = [" Sand Speed:", " Belt Speed:", " Thickness:", " Direction:", " Home Belt"]
 
     def pwelcome(self): #print welcome
         print("---- SANDER ----")
@@ -43,7 +43,7 @@ class pgui:
 
     def _cbf(self, state, command):
         if state == "HOME":
-            screen = self.home
+            screen = self.home_screen
         else:
             screen = None
             print "Invalid state"
@@ -61,7 +61,7 @@ def test():
     print "\n"
     time.sleep(.5)
     state = "HOME"
-    gui.pscreen_home(gui.run_display)
+    gui.pscreen_home(gui.home_screen)
     print"\n"
     time.sleep(.5)
     i = None
