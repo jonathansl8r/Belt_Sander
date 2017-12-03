@@ -4,6 +4,7 @@ class pgui:
     def __init__(self):
         self.cursor = 0
         self.loc = 0  # variable to track index of top LCD line
+        self.home = {"Sand Speed":0, "Belt Speed":0, "Thickness":0, "Direction":1, "Home Belt":False}
         self.run_display = [" Sand Speed:", " Belt Speed:", " Thickness:", " Direction:", " Home Belt"]
         self.top = True
 
