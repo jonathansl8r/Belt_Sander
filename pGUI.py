@@ -37,8 +37,8 @@ class pgui:
             print s[0]
             print s[1]
 
-    def _cbf(self, gpio):
-        if gpio == 1:
+    def _cbf(self, screen, command):
+        if command == 1:
             pass
 
 def test():
