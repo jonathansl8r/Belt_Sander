@@ -88,8 +88,10 @@ class pgui:
     def phome_belt(self):
         state = self.state #Track previous state when calling method
         self.state = "HOMING"
-        print "Homing Belt"
+        print "State: " + self.state
+        time.sleep(.5)
         self.state = state #Return to previous state after homing.
+        self.state = state
 
     def _cbf(self, command):
 
@@ -120,9 +122,17 @@ class scroll_object: #Class for creating menu items with "scrollable" input -- F
         self.upper = upper
 
     def scroll(self, command):
-        if command == 1 or command == -1: #To add or subtract from the value of scrollable object
-            self.value += command
-            print str(self.value)
+        if command == 1: #To add or subtract from the value of scrollable object
+            if self.value == self.upper:
+                self.value = self.lower
+            else:
+                self.value += command
+            state = "SCROLLING"
+        elif command == -1:
+            if self.value == self.lower:
+                self.value = self.upper
+            else:
+                self.value += command
             state = "SCROLLING"
         elif command == -2: #To cancel changing the value of scrollable object
             state = "HOME"
@@ -170,3 +180,4 @@ def test():
         print "\n"
 
     print "TEST COMPLETE..."
+    return gui
