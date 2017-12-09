@@ -10,8 +10,12 @@ class pgui:
         self.state = "HOME" #Start state will be home screen
         self.path = [] #Path is used to remember the current "location" in the gui dictionary. Will be a string of values to enter in dictionary
 
-        self.home_screen = [" Sand Speed:", " Belt Speed:", " Thickness:", " Direction:", " Home Belt"]
-        home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [scroll, 6, 0, 100], [scroll, 0,-1, 1], [function, self.phome_belt]]
+        self.some_screen = [" foo: ", " bar: "]
+        some_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100]]
+        self.some_screen = self.make_screen_dict(self.some_screen, some_screen)
+
+        self.home_screen = [" Sand Speed:", " Belt Speed:", " Thickness:", " Direction:", " Home Belt", " Dictionary"]
+        home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [scroll, 6, 0, 100], [scroll, 0,-1, 1], [function, self.phome_belt], [dictionary, self.some_screen]]
         self.home_dict = self.make_screen_dict(self.home_screen, home_screen)
 
     def make_screen_obj(self, screen, list): #method to make a list of objects / functions associated with a dictionary
