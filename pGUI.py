@@ -18,6 +18,8 @@ class pgui:
         home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [scroll, 6, 0, 100], [scroll, 0,-1, 1], [function, self.phome_belt], [dictionary, self.some_screen]]
         self.home_dict = self.make_screen_dict(self.home_screen, home_screen)
 
+        self.menu_dict = self.home_dict
+
     def make_screen_obj(self, screen, list): #method to make a list of objects / functions associated with a dictionary
         output = []
         for i in range(len(screen)):
@@ -44,6 +46,18 @@ class pgui:
                 pass
 
         return dictionary
+
+    def dict_loc(self): #Returns the dictionary based on current path
+        dictionary = self.home_dict
+        for i in self.path:
+            dictionary = dictionary[i]
+
+        return dictionary
+
+    def prev_dict_loc(self): #Returns the dictionary based on previous path
+        dictionary = self.home_dict
+        for i in self.path[1:len(self.path)]:
+            dictionary = dictionary[i]
 
     def pwelcome(self): #print welcome
         print("---- SANDER ----")
