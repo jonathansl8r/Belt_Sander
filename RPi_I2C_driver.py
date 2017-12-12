@@ -1,25 +1,32 @@
 # -*- coding: utf-8 -*-
+# Original code found at:
+# https://gist.github.com/DenisFromHR/cc863375a6e19dce359d
+
 """
 Compiled, mashed and generally mutilated 2014-2015 by Denis Pleic
 Made available under GNU GENERAL PUBLIC LICENSE
 
 # Modified Python I2C library for Raspberry Pi
 # as found on http://www.recantha.co.uk/blog/?p=4849
-#i2c Driver: https://gist.github.com/DenisFromHR/cc863375a6e19dce359d
 # Joined existing 'i2c_lib.py' and 'lcddriver.py' into a single library
 # added bits and pieces from various sources
 # By DenisFromHR (Denis Pleic)
 # 2015-02-10, ver 0.1
 
 """
-#
-#
+
+# i2c bus (0 -- original Pi, 1 -- Rev 2 Pi)
+I2CBUS = 1
+
+# LCD Address
+ADDRESS = 0x27
+
 import smbus
-from time import *
+from time import sleep
 
 
 class i2c_device:
-    def __init__(self, addr, port=1):
+    def __init__(self, addr, port=I2CBUS):
         self.addr = addr
         self.bus = smbus.SMBus(port)
 
@@ -50,9 +57,6 @@ class i2c_device:
     def read_block_data(self, cmd):
         return self.bus.read_block_data(self.addr, cmd)
 
-
-# LCD Address
-ADDRESS = 0x20 #sudo i2cdetect -y 1 <-- bash line to determine i2c address
 
 # commands
 LCD_CLEARDISPLAY = 0x01
@@ -139,16 +143,18 @@ class lcd:
         self.lcd_write_four_bits(mode | (charvalue & 0xF0))
         self.lcd_write_four_bits(mode | ((charvalue << 4) & 0xF0))
 
-    # put string function
-    def lcd_display_string(self, string, line):
+    # put string function with optional char positioning
+    def lcd_display_string(self, string, line=1, pos=0):
         if line == 1:
-            self.lcd_write(0x80)
-        if line == 2:
-            self.lcd_write(0xC0)
-        if line == 3:
-            self.lcd_write(0x94)
-        if line == 4:
-            self.lcd_write(0xD4)
+            pos_new = pos
+        elif line == 2:
+            pos_new = 0x40 + pos
+        elif line == 3:
+            pos_new = 0x14 + pos
+        elif line == 4:
+            pos_new = 0x54 + pos
+
+        self.lcd_write(0x80 + pos_new)
 
         for char in string:
             self.lcd_write(ord(char), Rs)
@@ -171,20 +177,3 @@ class lcd:
         for char in fontdata:
             for line in char:
                 self.lcd_write_char(line)
-
-                # define precise positioning (addition from the forum)
-
-    def lcd_display_string_pos(self, string, line, pos):
-        if line == 1:
-            pos_new = pos
-        elif line == 2:
-            pos_new = 0x40 + pos
-        elif line == 3:
-            pos_new = 0x14 + pos
-        elif line == 4:
-            pos_new = 0x54 + pos
-
-        self.lcd_write(0x80 + pos_new)
-
-        for char in string:
-            self.lcd_write(ord(char), Rs)

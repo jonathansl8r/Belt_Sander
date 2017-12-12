@@ -236,7 +236,6 @@ def test():
             break
 
         gui._cbf(i)
-        print "State: " +str(gui.state)
         print "\n"
 
     print "TEST COMPLETE..."
