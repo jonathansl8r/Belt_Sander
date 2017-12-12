@@ -5,6 +5,7 @@ class pgui:
         scroll = "scroll"
         function = "function"
         dictionary = "dictionary"
+        list = "list"
 
         self.cursor = 0
         self.state = "HOME" #Start state will be home screen
@@ -23,8 +24,8 @@ class pgui:
     def make_screen_obj(self, screen, list): #method to make a list of objects / functions associated with a dictionary
         output = []
         for i in range(len(screen)):
-            if list[i][0] == "scroll":
-                obj = scroll_object(screen[i], list[i][1], list[i][2], list[i][3])
+            if list[i][0] == "scroll" or list[i][0] == "list":
+                obj = scroll_object(list[i][1], list[i][2], list[i][3])
                 output.append(obj)
             elif list[i][0] == "function":
                 output.append(list[i][1])
@@ -36,16 +37,23 @@ class pgui:
         dictionary = {}
         obj = self.make_screen_obj(screen, list)
         for i in range(len(screen)):
-            if str(type(self)) == "<type 'instance'>": #Dictionary item is an object -- Object needs at least two methods: self.val() and self.state()
-                d = {screen[i]:obj[i]}
-                dictionary.update(d)
-            elif callable(obj[i]): #Dictionary item is a method
+            if str(type(self)) == "<type 'instance'>" or callable(obj[i]) or str(type(self )) == "<type 'dict'>": #Check if dictionary item is acceptable and add to dictionary
                 d = {screen[i]:obj[i]}
                 dictionary.update(d)
             else:
                 pass
 
         return dictionary
+
+    def range(self, start, stop, incr):
+        i = []
+        i.append(start)
+        j = 0
+        while i[j] <= stop:
+            i.append(i[j]+incr)
+            j = j + 1
+
+        return i
 
     def dict_loc(self): #Returns the dictionary based on current path
         dictionary = self.home_dict
@@ -109,7 +117,6 @@ class pgui:
         print "State: " + self.state
         time.sleep(.5)
         self.state = state #Return to previous state after homing.
-        self.state = state
 
     def _cbf(self, command):
 
@@ -133,8 +140,7 @@ class pgui:
 
 
 class scroll_object: #Class for creating menu items with "scrollable" input -- For actual implementation need to allow user to hold button and scroll value
-    def __init__(self, name, initial, lower, upper):
-        self.name = name
+    def __init__(self, initial, lower, upper):
         self.value = initial
         self.lower = lower
         self.upper = upper
@@ -151,6 +157,42 @@ class scroll_object: #Class for creating menu items with "scrollable" input -- F
                 self.value = self.upper
             else:
                 self.value += command
+            state = "SCROLLING"
+        elif command == -2: #To cancel changing the value of scrollable object
+            state = "HOME"
+        elif command == 3:
+            state = "HOME"
+        else:
+            state = "SCROLLING"
+
+        return [state, self.value]
+
+    def state(self):
+        return "SCROLLING"
+
+    def val(self):
+        return self.value
+
+class list_object():
+    def __init__(self, initial, list):
+        self.incr = initial
+        self.list = list
+        self.value = self.list[initial]
+
+    def scroll(self, command):
+        if command == 1: #To add or subtract from the value of scrollable object
+            if self.incr == self.list[len(self.list)-1]:
+                self.incr = self.list[0]
+            else:
+                self.incr += command
+                self.value = self.list[self.incr]
+            state = "SCROLLING"
+        elif command == -1:
+            if self.incr == self.list[0]:
+                self.incr = self.list[len(self.list)-1]
+            else:
+                self.incr += command
+                self.value = self.list[self.incr]
             state = "SCROLLING"
         elif command == -2: #To cancel changing the value of scrollable object
             state = "HOME"
