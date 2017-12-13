@@ -1,7 +1,7 @@
 #Graphic User Interface for Belt Sander 16x2 LCD
 import RPi_I2C_driver
-import time
-import pigpio
+#import time
+#import pigpio
 
 import time
 
@@ -12,16 +12,22 @@ class gui:
         dictionary = "dictionary"
         list = "list"
 
-        self.cursor = 0
+        self.lcd = RPi_I2C_driver.lcd()
+
+        self.cursor = 0 #cursor value (relative to the entire screen dictionary)
+        self.local_cursor = 0 #cursor value (relative to the display size -- i.e. self.disp_rows)
+        self.start = 0 #remember which item to print first on lcd...
+        self.disp_rows = 4
+
         self.state = "HOME" #Start state will be home screen
         self.path = [] #Path is used to remember the current "location" in the gui dictionary. Will be a string of values to enter in dictionary
 
-        self.some_screen = [" foo: ", " bar: "]
-        some_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100]]
-        self.some_screen = self.make_screen_dict(self.some_screen, some_screen)
+        #self.some_screen = [" foo: ", " bar: "]
+        #some_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100]]
+        #self.some_screen = self.make_screen_dict(self.some_screen, some_screen)
 
-        self.home_screen = [" Sand Speed:", " Belt Speed:", " Thickness:", " Direction:", " Home Belt", " Dictionary"]
-        home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [scroll, 6, 0, 100], [scroll, 0,-1, 1], [function, self.phome_belt], [dictionary, self.some_screen]]
+        self.home_screen = [" Sand Speed [%]: ", " Belt Speed [%]: ", " Thickness [\"]: ", " Direction: ", " Home Belt"]
+        home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [scroll, 6, 0, 100], [scroll, 0,-1, 1], [function, self.home_belt]]
         self.home_dict = self.make_screen_dict(self.home_screen, home_screen)
 
         self.menu_dict = self.home_dict
@@ -42,7 +48,7 @@ class gui:
         dictionary = {}
         obj = self.make_screen_obj(screen, list)
         for i in range(len(screen)):
-            if str(type(self)) == "<type 'instance'>" or callable(obj[i]) or str(type(self )) == "<type 'dict'>": #Check if dictionary item is acceptable and add to dictionary
+            if str(type(self)) == "<type 'instance'>" or callable(obj[i]) or str(type(self)) == "<type 'dict'>": #Check if dictionary item is acceptable and add to dictionary --- NOT DONE YET!!!
                 d = {screen[i]:obj[i]}
                 dictionary.update(d)
             else:
@@ -73,34 +79,111 @@ class gui:
             dictionary = dictionary[i]
 
     def welcome(self): #print welcome
-        print("---- SANDER ----")
-        print("RasPi Zero W")
+        self.lcd.lcd_display_string("    BELT SANDER", 1)
+        self.lcd.lcd_display_string("    RasPi Zero W", 2)
+        time.sleep(1)
+        self.lcd.lcd_clear()
 
     def screen_home(self, screen):
-        print(">"+screen[0][1:])
-        print(screen[1])
+        s = screen
+        self.start = 0
+        if len(s) < self.disp_rows:
+            for i in range(len(s)):
+                ob_type = str(type(self.menu_dict[s[i]]))
+                if i == 0:
+                    if ob_type == "<type 'instance'>":
+                        val = str(self.menu_dict[s[i]].val())
+                        self.lcd.lcd_display_string(">"+s[i][1:]+val, 1)
+                    else:
+                        self.lcd.lcd_display_string(">" + s[i][1:], 1)
+                else:
+                    if ob_type == "<type 'instance'>":
+                        val = str(self.menu_dict[s[i]].val())
+                        self.lcd.lcd_display_string(s[i]+val, 1)
+                    else:
+                        self.lcd.lcd_display_string(s[i], i + 1)
+
+        else:
+            for i in range(self.disp_rows):
+                ob_type = str(type(self.menu_dict[s[i]]))
+                if i == 0:
+                    if ob_type == "<type 'instance'>":
+                        val = str(self.menu_dict[s[i]].val())
+                        self.lcd.lcd_display_string(">"+s[i][1:]+val, 1)
+                    else:
+                        self.lcd.lcd_display_string(">" + s[i][1:], 1)
+                else:
+                    if ob_type == "<type 'instance'>":
+                        val = str(self.menu_dict[s[i]].val())
+                        self.lcd.lcd_display_string(s[i]+val, i + 1)
+                    else:
+                        self.lcd.lcd_display_string(s[i], i + 1)
 
     def scroll(self, screen, command):
         #Get new cursor index and print new screens
         self.state = "HOME"
+        s = []
+        self.lcd.lcd_clear()
+
         if self.cursor == len(screen)-1 and command == -1:
             self.cursor = 0
-            s = [">"+screen[self.cursor][1:], screen[self.cursor+1]]
+            self.local_cursor = 0
+            self.start = 0
         elif command == -1:
             self.cursor -= command
-            s = [screen[self.cursor-1], ">"+screen[self.cursor][1:]]
+            if self.local_cursor >= self.disp_rows - 1:
+                self.local_cursor = self.disp_rows - 1
+                self.start -= command
+            else:
+                self.local_cursor -= command
+
         elif self.cursor == 0 and command == 1:
             self.cursor = len(screen)-1
-            s = [screen[self.cursor-1], ">"+screen[self.cursor][1:]]
-        elif command ==1:
+            self.local_cursor = self.disp_rows - 1
+            self.start = len(screen) - (self.disp_rows)
+        elif command == 1:
             self.cursor -= command
-            s = [">"+screen[self.cursor][1:], screen[self.cursor+1]]
+            if self.local_cursor == 0:
+                self.start -= command
+            else:
+                self.local_cursor -= command
+
         else:
             s = None
+
+        if len(screen) < self.disp_rows + 1: #If screen is smaller than display...
+            for i in range(len(screen)):
+                ob_type = str(type(self.menu_dict[screen[self.start+i]]))
+                if i == self.local_cursor:
+                    if ob_type == "<type 'instance'>":
+                        val = str(self.menu_dict[screen[self.start+i]].val())
+                        s.append(">" + screen[self.start+i] + val)
+                    else:
+                        s.append(">" + screen[self.start+i][1:])
+                else:
+                    s.append(screen[self.start+i])
+        else:
+            for i in range(self.disp_rows):
+                ob_type = str(type(self.menu_dict[screen[self.start+i]]))
+                if i == self.local_cursor:
+                    if ob_type == "<type 'instance'>":
+                        val = str(self.menu_dict[screen[self.start+i]].val())
+                        s.append(">" + screen[self.start+i][1:] + val)
+                    else:
+                        s.append(">" + screen[self.start+i][1:])
+                else:
+                    if ob_type == "<type 'instance'>":
+                        val = str(self.menu_dict[screen[self.start+i]].val())
+                        s.append(screen[self.start+i] + val)
+                    else:
+                        s.append(screen[self.start+i])
+
         #If there is a new screen, print...
         if not s == None:
-            print s[0]
-            print s[1]
+            for i in range(len(s)):
+                self.lcd.lcd_display_string(s[i], i+1)
+        else:
+            pass
 
     def enter(self):
         if self.state == "HOME":
@@ -127,15 +210,19 @@ class gui:
 
         if self.state == "HOME":
             if command == 1 or command == -1:
-                self.pscroll(self.home_screen, command)
+                self.scroll(self.home_screen, command)
             elif command == 2 or command == -2:
                 print "L/R -- Not programmed" #Left to go "backwards" in dictionary  if possible. Right to go "forwards" in dictionary if possible.
             elif command == 3:
-                self.penter()
+                self.enter()
         elif self.state == "SCROLLING":
             if command == 1 or command == -1:
                 [self.state, x] = self.home_dict[self.home_screen[self.cursor]].scroll(command)#Scrolling object always has self.value attribute
                 print str(self.home_screen[self.cursor]) + str(x)
+                disp_string = ">"+self.home_screen[self.cursor][1:]+str(x)
+                if len(disp_string) < 20: #Depends on the width of the screen being used!!!
+                    disp_string = disp_string + " "*(20-len(disp_string))
+                self.lcd.lcd_display_string(disp_string, self.local_cursor+1)
             elif command == -2:
                 self.state = "HOME"
             elif command  == 3:
@@ -215,14 +302,14 @@ class list_object():
         return self.value
 
 def test():
-    gui = gui()
-    gui.pwelcome()
+    lcd = gui()
+    lcd.welcome()
+    lcd.screen_home(lcd.home_screen)
+
+    print "Local Cursor: " + str(lcd.local_cursor)
+    print "Global Cursor: " + str(lcd.cursor)
+    print "Start Point: " + str(lcd.start)
     print "\n"
-    time.sleep(.5)
-    gui.pscreen_home(gui.home_screen)
-    print"\n"
-    time.sleep(.5)
-    i = None
 
     #while not i == "exit":
     while True:
@@ -240,18 +327,11 @@ def test():
         elif i == "exit":
             break
 
-        gui._cbf(i)
+        lcd._cbf(i)
         print "\n"
 
+    lcd.lcd.lcd_clear()
     print "TEST COMPLETE..."
-    return gui
 
-def test():
-    pi = pigpio.pi()
-    left = 1
-    right = 2
-    up = 3
-    down = 4
-    select = 5
-    g = gui(pi, left, right, up, down, select)
-    g.welcome()
+if __name__ == "__main__":
+    pass
