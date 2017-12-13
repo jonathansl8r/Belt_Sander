@@ -32,7 +32,7 @@ class gui:
 
         self.menu_dict = self.home_dict
 
-    def make_screen_obj(self, screen, list): #method to make a list of objects / functions associated with a dictionary
+    def make_screen_obj(self, screen, list): # method to make a list of objects / functions associated with a dictionary
         output = []
         for i in range(len(screen)):
             if list[i][0] == "scroll" or list[i][0] == "list":
