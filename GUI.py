@@ -1,33 +1,72 @@
 #Graphic User Interface for Belt Sander 16x2 LCD
 import RPi_I2C_driver
-#import time
-#import pigpio
-
 import time
+import pigpio
+#import Microstep_Driver as md
+import serial
+#import RPi.GPIO as gpio
+#import threading
 
 class gui:
-    def __init__(self):
+    def __init__(self, pi):
         scroll = "scroll"
         function = "function"
         dictionary = "dictionary"
         list = "list"
 
-        self.lcd = RPi_I2C_driver.lcd()
+        self.pi = pigpio.pi()
+        self.motor1_enable_pin = 26 #enable pin for turning motor on/off
+        self.motor2_enable_pin = 19
 
-        self.cursor = 0 #cursor value (relative to the entire screen dictionary)
-        self.local_cursor = 0 #cursor value (relative to the display size -- i.e. self.disp_rows)
-        self.start = 0 #remember which item to print first on lcd...
+        self.pi.set_mode(self.motor1_enable_pin, pigpio.OUTPUT)
+        self.pi.set_mode(self.motor2_enable_pin, pigpio.OUTPUT)
+
+        self.pi.write(self.motor1_enable_pin, 0)
+        self.pi.write(self.motor2_enable_pin, 0)
+
+        self.lcd = RPi_I2C_driver.lcd() #Create lcd object
+
+        self.inverted_font = [
+            #Zero
+            [0x11,0x0E,0x0C,0x0A,0x06,0x0E,0x11,0x1F],
+            #One
+            [0x1B,0x13,0x1B,0x1B,0x1B,0x1B,0x11,0x1F],
+            #Two
+            [0x11,0x0E,0x1E,0x1D,0x1B,0x17,0x00,0x1F],
+            #Three
+            [0x00,0x1D,0x1B,0x1D,0x1E,0x0E,0x11,0x1F],
+            #Four
+            [0x1D,0x19,0x15,0x0D,0x00,0x1D,0x1D,0x1F],
+            #Five
+            [0x00,0x0F,0x01,0x1E,0x1E,0x0E,0x11,0x1F],
+            #Six
+            [0x19,0x17,0x0F,0x01,0x0E,0x0E,0x11,0x1F],
+            #Seven
+            [0x00,0x1E,0x1D,0x1B,0x17,0x17,0x17,0x1F],
+            #Eight
+            [0x11,0x0E,0x0E,0x11,0x0E,0x0E,0x11,0x1F],
+            #Nine
+            [0x11,0x0E,0x0E,0x10,0x1E,0x1D,0x13,0x1F]]
+
+        self.cust_char = [[]]
+
+        self.lcd.lcd_load_custom_chars(self.cust_char)
+
+        self.teensy = serial.Serial("/dev/ttyACM0", 115200) #Initialize teensy serial communication
+
+        self.cursor = 0 #Cursor value (relative to the entire screen dictionary)
+        self.local_cursor = 0 #Cursor value (relative to the display size -- i.e. self.disp_rows)
+        self.start = 0 #Holder remember which item to print first on lcd...
+
+        #INPUT THE SIZE OF THE DISPLAY BELOW:
+        self.disp_cols = 20
         self.disp_rows = 4
 
         self.state = "HOME" #Start state will be home screen
         self.path = [] #Path is used to remember the current "location" in the gui dictionary. Will be a string of values to enter in dictionary
 
-        #self.some_screen = [" foo: ", " bar: "]
-        #some_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100]]
-        #self.some_screen = self.make_screen_dict(self.some_screen, some_screen)
-
-        self.home_screen = [" Sand Speed [%]: ", " Belt Speed [%]: ", " Thickness [\"]: ", " Direction: ", " Home Belt"]
-        home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [scroll, 6, 0, 100], [scroll, 0,-1, 1], [function, self.home_belt]]
+        self.home_screen = [" Sand Speed [%]: ", " Belt Speed [%]: ", " Thickness [\"]:", " Direction: ", " Home Belt"]
+        home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [list, 0, self.range(0.125,4,0.125)], [list, 0,["FORWARD", "REVERSE"]], [function, self.home_belt]]
         self.home_dict = self.make_screen_dict(self.home_screen, home_screen)
 
         self.menu_dict = self.home_dict
@@ -35,8 +74,11 @@ class gui:
     def make_screen_obj(self, screen, list): # method to make a list of objects / functions associated with a dictionary
         output = []
         for i in range(len(screen)):
-            if list[i][0] == "scroll" or list[i][0] == "list":
+            if list[i][0] == "scroll":
                 obj = scroll_object(list[i][1], list[i][2], list[i][3])
+                output.append(obj)
+            elif list[i][0] == "list":
+                obj = list_object(list[i][1], list[i][2])
                 output.append(obj)
             elif list[i][0] == "function":
                 output.append(list[i][1])
@@ -60,7 +102,7 @@ class gui:
         i = []
         i.append(start)
         j = 0
-        while i[j] <= stop:
+        while i[j] < stop:
             i.append(i[j]+incr)
             j = j + 1
 
@@ -79,9 +121,11 @@ class gui:
             dictionary = dictionary[i]
 
     def welcome(self): #print welcome
-        self.lcd.lcd_display_string("    BELT SANDER", 1)
-        self.lcd.lcd_display_string("    RasPi Zero W", 2)
-        time.sleep(1)
+        #self.lcd.lcd_display_string("    BELT SANDER", 2)
+        #self.lcd.lcd_display_string("    RasPi Zero W", 3)
+        for i in range(2):
+            self.lcd.lcd_display_string(unichr(i),1,i+1)
+        time.sleep(10)
         self.lcd.lcd_clear()
 
     def screen_home(self, screen):
@@ -123,7 +167,9 @@ class gui:
         #Get new cursor index and print new screens
         self.state = "HOME"
         s = []
-        self.lcd.lcd_clear()
+
+        start = self.start
+        local_cursor = self.local_cursor
 
         if self.cursor == len(screen)-1 and command == -1:
             self.cursor = 0
@@ -151,7 +197,12 @@ class gui:
         else:
             s = None
 
-        if len(screen) < self.disp_rows + 1: #If screen is smaller than display...
+        if start == self.start:
+            self.lcd.lcd_display_string(" ", local_cursor+1, 0)
+            self.lcd.lcd_display_string(">", self.local_cursor+1, 0)
+
+        elif start != self.start and len(screen) < self.disp_rows + 1: #If screen is smaller than display...
+            self.lcd.lcd_clear()
             for i in range(len(screen)):
                 ob_type = str(type(self.menu_dict[screen[self.start+i]]))
                 if i == self.local_cursor:
@@ -162,7 +213,15 @@ class gui:
                         s.append(">" + screen[self.start+i][1:])
                 else:
                     s.append(screen[self.start+i])
+            #If there is a new screen, print...
+            if not s == None:
+                for i in range(len(s)):
+                    self.lcd.lcd_display_string(s[i], i+1)
+            else:
+                pass
+
         else:
+            self.lcd.lcd_clear()
             for i in range(self.disp_rows):
                 ob_type = str(type(self.menu_dict[screen[self.start+i]]))
                 if i == self.local_cursor:
@@ -178,12 +237,12 @@ class gui:
                     else:
                         s.append(screen[self.start+i])
 
-        #If there is a new screen, print...
-        if not s == None:
-            for i in range(len(s)):
-                self.lcd.lcd_display_string(s[i], i+1)
-        else:
-            pass
+            #If there is a new screen, print...
+            if not s == None:
+                for i in range(len(s)):
+                    self.lcd.lcd_display_string(s[i], i+1)
+            else:
+                pass
 
     def enter(self):
         if self.state == "HOME":
@@ -200,13 +259,18 @@ class gui:
             dictionary = None
 
     def home_belt(self):
-        state = self.state #Track previous state when calling method
-        self.state = "HOMING"
-        print "State: " + self.state
-        time.sleep(.5)
-        self.state = state #Return to previous state after homing.
+        self.teensy.write("1,2,0\\n") #Send serial message to teensy to home belt...
 
-    def _cbf(self, command):
+    def _cbf(self, gpio, level, tick): #, level, tick
+
+        if gpio == 20:
+            command = -1
+        elif gpio == 16:
+            command = 1
+        elif gpio == 21 or gpio == 25:
+            command = 3
+        else:
+            command = 0
 
         if self.state == "HOME":
             if command == 1 or command == -1:
@@ -218,15 +282,34 @@ class gui:
         elif self.state == "SCROLLING":
             if command == 1 or command == -1:
                 [self.state, x] = self.home_dict[self.home_screen[self.cursor]].scroll(command)#Scrolling object always has self.value attribute
-                print str(self.home_screen[self.cursor]) + str(x)
                 disp_string = ">"+self.home_screen[self.cursor][1:]+str(x)
-                if len(disp_string) < 20: #Depends on the width of the screen being used!!!
-                    disp_string = disp_string + " "*(20-len(disp_string))
+
+                if len(disp_string) < self.disp_cols: #Depends on the width of the screen being used!!!
+                    #flash_string = flash_string + " "*(self.disp_cols-len(disp_string))
+                    disp_string = disp_string + " "*(self.disp_cols-len(disp_string))
+                #self.lcd.lcd_display_string(flash_string, self.local_cursor + 1)
                 self.lcd.lcd_display_string(disp_string, self.local_cursor+1)
+
             elif command == -2:
                 self.state = "HOME"
+
             elif command  == 3:
                 self.state = "HOME"
+                if self.home_screen[self.cursor] == " Belt Speed [%]: ":
+                    if self.home_dict[" Direction: "].val() == "REVERSE":
+                        teensy_str = "2,1,"+str(-1*self.home_dict[self.home_screen[self.cursor]].val())+str("\\n")
+                    else:
+                        teensy_str = "2,1," + str(self.home_dict[self.home_screen[self.cursor]].val()) + str("\\n")
+                elif self.home_screen[self.cursor] == " Thickness [\"]:":
+                    teensy_str = "1,1,"+str((4-(self.home_dict[self.home_screen[self.cursor]].val()))*1000)+str("\\n")
+                elif self.home_screen[self.cursor] == " Direction: ":
+                    if self.home_dict[" Direction: "].val() == "REVERSE":
+                        teensy_str = "2,1,"+str(-1*self.home_dict[" Belt Speed [%]: "].val())+str("\\n")
+                    else:
+                        teensy_str = "2,1,"+str(self.home_dict[" Belt Speed [%]: "].val())+str("\\n")
+                else:
+                    teensy_str = ""
+                self.teensy.write(teensy_str)
         else:
             print "Invalid state"
 
@@ -273,19 +356,19 @@ class list_object():
 
     def scroll(self, command):
         if command == 1: #To add or subtract from the value of scrollable object
-            if self.incr == self.list[len(self.list)-1]:
-                self.incr = self.list[0]
+            if self.incr == len(self.list)-1:
+                self.incr = 0
             else:
                 self.incr += command
-                self.value = self.list[self.incr]
             state = "SCROLLING"
+            self.value = self.list[self.incr]
         elif command == -1:
-            if self.incr == self.list[0]:
-                self.incr = self.list[len(self.list)-1]
+            if self.incr == 0:
+                self.incr = len(self.list) - 1
             else:
                 self.incr += command
-                self.value = self.list[self.incr]
             state = "SCROLLING"
+            self.value = self.list[self.incr]
         elif command == -2: #To cancel changing the value of scrollable object
             state = "HOME"
         elif command == 3:
@@ -302,36 +385,42 @@ class list_object():
         return self.value
 
 def test():
-    lcd = gui()
+
+    pi = pigpio.pi()
+    lcd = gui(pi)
     lcd.welcome()
     lcd.screen_home(lcd.home_screen)
 
-    print "Local Cursor: " + str(lcd.local_cursor)
-    print "Global Cursor: " + str(lcd.cursor)
-    print "Start Point: " + str(lcd.start)
-    print "\n"
+    right = 21
+    down = 20
+    up = 16
+    left = 12
+    ok = 25
 
-    #while not i == "exit":
+    #motor = md.stepper(pi, 26, 13, 19, 6)
+
+    '''pi.set_pull_up_down(right, pigpio.PUD_UP)
+    pi.set_pull_up_down(down, pigpio.PUD_UP)
+    pi.set_pull_up_down(up, pigpio.PUD_UP)
+    pi.set_pull_up_down(left, pigpio.PUD_UP)
+    pi.set_pull_up_down(ok, pigpio.PUD_UP)'''
+
+    pi.set_mode(right, pigpio.INPUT)
+    pi.set_mode(down, pigpio.INPUT)
+    pi.set_mode(up, pigpio.INPUT)
+    pi.set_mode(left, pigpio.INPUT)
+    pi.set_mode(ok, pigpio.INPUT)
+
+    pi.callback(right, pigpio.RISING_EDGE, lcd._cbf)
+    pi.callback(down, pigpio.RISING_EDGE, lcd._cbf)
+    pi.callback(up, pigpio.RISING_EDGE, lcd._cbf)
+    pi.callback(left, pigpio.RISING_EDGE, lcd._cbf)
+    pi.callback(ok, pigpio.RISING_EDGE, lcd._cbf)
+
+    lcd.home_belt()
+
     while True:
-        i = raw_input("Command: ")
-        if i == "w":
-            i = 1
-        elif i == "s":
-            i = -1
-        elif i == "e":
-            i = 3
-        elif i == "a":
-            i = -2
-        elif i == "d":
-            i = 2
-        elif i == "exit":
-            break
-
-        lcd._cbf(i)
-        print "\n"
-
-    lcd.lcd.lcd_clear()
-    print "TEST COMPLETE..."
+        time.sleep(.00001)
 
 if __name__ == "__main__":
-    pass
+    test()
