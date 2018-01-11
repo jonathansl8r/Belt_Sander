@@ -26,31 +26,7 @@ class gui:
 
         self.lcd = RPi_I2C_driver.lcd() #Create lcd object
 
-        self.inverted_font = [
-            #Zero
-            [0x11,0x0E,0x0C,0x0A,0x06,0x0E,0x11,0x1F],
-            #One
-            [0x1B,0x13,0x1B,0x1B,0x1B,0x1B,0x11,0x1F],
-            #Two
-            [0x11,0x0E,0x1E,0x1D,0x1B,0x17,0x00,0x1F],
-            #Three
-            [0x00,0x1D,0x1B,0x1D,0x1E,0x0E,0x11,0x1F],
-            #Four
-            [0x1D,0x19,0x15,0x0D,0x00,0x1D,0x1D,0x1F],
-            #Five
-            [0x00,0x0F,0x01,0x1E,0x1E,0x0E,0x11,0x1F],
-            #Six
-            [0x19,0x17,0x0F,0x01,0x0E,0x0E,0x11,0x1F],
-            #Seven
-            [0x00,0x1E,0x1D,0x1B,0x17,0x17,0x17,0x1F],
-            #Eight
-            [0x11,0x0E,0x0E,0x11,0x0E,0x0E,0x11,0x1F],
-            #Nine
-            [0x11,0x0E,0x0E,0x10,0x1E,0x1D,0x13,0x1F]]
-
-        self.cust_char = [[]]
-
-        self.lcd.lcd_load_custom_chars(self.cust_char)
+        self.lcd.lcd_load_custom_chars([[0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F]])
 
         self.teensy = serial.Serial("/dev/ttyACM0", 115200) #Initialize teensy serial communication
 
@@ -121,12 +97,8 @@ class gui:
             dictionary = dictionary[i]
 
     def welcome(self): #print welcome
-        #self.lcd.lcd_display_string("    BELT SANDER", 2)
-        #self.lcd.lcd_display_string("    RasPi Zero W", 3)
-        for i in range(2):
-            self.lcd.lcd_display_string(unichr(i),1,i+1)
-        time.sleep(10)
-        self.lcd.lcd_clear()
+        self.lcd.lcd_display_string("    BELT SANDER", 2)
+        self.lcd.lcd_display_string("    RasPi Zero W", 3)
 
     def screen_home(self, screen):
         s = screen
@@ -276,19 +248,22 @@ class gui:
             if command == 1 or command == -1:
                 self.scroll(self.home_screen, command)
             elif command == 2 or command == -2:
-                print "L/R -- Not programmed" #Left to go "backwards" in dictionary  if possible. Right to go "forwards" in dictionary if possible.
+                pass #Left to go "backwards" in dictionary  if possible. Right to go "forwards" in dictionary if possible.
             elif command == 3:
                 self.enter()
+                if not callable(self.home_dict[self.home_screen[self.cursor]]):
+                    self.lcd.lcd_display_string("#", self.local_cursor+1)
         elif self.state == "SCROLLING":
             if command == 1 or command == -1:
                 [self.state, x] = self.home_dict[self.home_screen[self.cursor]].scroll(command)#Scrolling object always has self.value attribute
-                disp_string = ">"+self.home_screen[self.cursor][1:]+str(x)
+                disp_string = "#"+self.home_screen[self.cursor][1:]+str(x)
 
                 if len(disp_string) < self.disp_cols: #Depends on the width of the screen being used!!!
                     #flash_string = flash_string + " "*(self.disp_cols-len(disp_string))
                     disp_string = disp_string + " "*(self.disp_cols-len(disp_string))
                 #self.lcd.lcd_display_string(flash_string, self.local_cursor + 1)
                 self.lcd.lcd_display_string(disp_string, self.local_cursor+1)
+                #self.lcd.lcd_display_string(unichr(0))
 
             elif command == -2:
                 self.state = "HOME"
@@ -310,6 +285,7 @@ class gui:
                 else:
                     teensy_str = ""
                 self.teensy.write(teensy_str)
+                self.lcd.lcd_display_string(">", self.local_cursor+1)
         else:
             print "Invalid state"
 
@@ -389,6 +365,7 @@ def test():
     pi = pigpio.pi()
     lcd = gui(pi)
     lcd.welcome()
+    time.sleep(2.5)
     lcd.screen_home(lcd.home_screen)
 
     right = 21
