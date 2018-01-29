@@ -241,6 +241,15 @@ class gui:
             command = 1
         elif gpio == 21 or gpio == 25:
             command = 3
+        elif gpio == 22:
+            if level == 1:
+                print "HERE!!!"
+                self.state = "MANUAL"
+                command = 0
+            else:
+                print "THERE!!!"
+                self.state = "HOME"
+                command = 0
         else:
             command = 0
 
