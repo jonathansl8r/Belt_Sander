@@ -42,6 +42,7 @@ class gui:
             self.state = "MANUAL"
         else:
             self.state = "HOME" #Start state is manual or "home" depending on initial switch state
+
         self.path = [] #Path is used to remember the current "location" in the gui dictionary. Will be a string of values to enter in dictionary
 
         self.home_screen = [" Sand Speed [%]: ", " Belt Speed [%]: ", " Thickness [\"]:", " Direction: ", " Home Belt"]
@@ -84,14 +85,12 @@ class gui:
         while i[j] < stop:
             i.append(i[j]+incr)
             j = j + 1
-
         return i
 
     def dict_loc(self): #Returns the dictionary based on current path
         dictionary = self.home_dict
         for i in self.path:
             dictionary = dictionary[i]
-
         return dictionary
 
     def prev_dict_loc(self): #Returns the dictionary based on previous path
@@ -236,11 +235,10 @@ class gui:
     def home_belt(self):
         self.teensy.write("1,2,0\\n") #Send serial message to teensy to home belt...
 
-    def _cbf(self, gpio, level, tick): #, level, tick
+    def _cbf(self, gpio, level, tick): #level, tick
 
         if self.pi.read(22):
             self.state = "MANUAL"
-            print self.state
             command = 0
         elif gpio == 20:
             command = -1
@@ -255,6 +253,8 @@ class gui:
             else:
                 self.state = "MANUAL"
                 command = 0 #Case should never occur but "else" statement ensures "command" will have a value...
+        elif gpio == 12:
+            command = 2
         else:
             command = 0
 
@@ -301,7 +301,16 @@ class gui:
                 self.teensy.write(teensy_str)
                 self.lcd.lcd_display_string(">", self.local_cursor+1)
         elif self.state == "MANUAL":
-            pass
+            if gpio == 12: #left
+                pass
+            elif gpio == 16: #up
+                pass
+            elif gpio == 21: #right
+                pass
+            elif gpio == 20: #down
+                pass
+            else:
+                pass
         else:
             print "Invalid state"
 
@@ -404,6 +413,11 @@ def run():
     pi.set_mode(up, pigpio.INPUT)
     pi.set_mode(left, pigpio.INPUT)
     pi.set_mode(ok, pigpio.INPUT)
+
+    pi.set_mode(4, pigpio.OUTPUT)
+    pi.set_mode(17, pigpio.OUTPUT)
+    pi.set_mode(27, pigpio.OUTPUT)
+    pi.set_mode(5, pigpio.OUTPUT)
 
     pi.callback(right, pigpio.RISING_EDGE, lcd._cbf)
     pi.callback(down, pigpio.RISING_EDGE, lcd._cbf)
