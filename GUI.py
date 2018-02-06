@@ -38,11 +38,14 @@ class gui:
         self.disp_cols = 20
         self.disp_rows = 4
 
-        self.state = "HOME" #Start state will be home screen
+        if self.pi.read(22):
+            self.state = "MANUAL"
+        else:
+            self.state = "HOME" #Start state is manual or "home" depending on initial switch state
         self.path = [] #Path is used to remember the current "location" in the gui dictionary. Will be a string of values to enter in dictionary
 
         self.home_screen = [" Sand Speed [%]: ", " Belt Speed [%]: ", " Thickness [\"]:", " Direction: ", " Home Belt"]
-        home_screen = [[scroll, 0, 0, 100], [scroll, 0, 0, 100], [list, 0, self.range(0.125,4,0.125)], [list, 0,["FORWARD", "REVERSE"]], [function, self.home_belt]]
+        home_screen = [[list, 0, ["OFF", "ON"]], [scroll, 0, 0, 100], [list, 0, self.range(0.125,4,0.125)], [list, 0,["FORWARD", "REVERSE"]], [function, self.home_belt]]
         self.home_dict = self.make_screen_dict(self.home_screen, home_screen)
 
         self.menu_dict = self.home_dict
@@ -156,7 +159,7 @@ class gui:
                 self.local_cursor -= command
 
         elif self.cursor == 0 and command == 1:
-            self.cursor = len(screen)-1
+            self.cursor = len(screen)-17
             self.local_cursor = self.disp_rows - 1
             self.start = len(screen) - (self.disp_rows)
         elif command == 1:
@@ -235,21 +238,23 @@ class gui:
 
     def _cbf(self, gpio, level, tick): #, level, tick
 
-        if gpio == 20:
+        if self.pi.read(22):
+            self.state = "MANUAL"
+            print self.state
+            command = 0
+        elif gpio == 20:
             command = -1
         elif gpio == 16:
             command = 1
         elif gpio == 21 or gpio == 25:
             command = 3
         elif gpio == 22:
-            if level == 1:
-                print "HERE!!!"
-                self.state = "MANUAL"
-                command = 0
-            else:
-                print "THERE!!!"
+            if level == 0:
                 self.state = "HOME"
                 command = 0
+            else:
+                self.state = "MANUAL"
+                command = 0 #Case should never occur but "else" statement ensures "command" will have a value...
         else:
             command = 0
 
@@ -295,6 +300,8 @@ class gui:
                     teensy_str = ""
                 self.teensy.write(teensy_str)
                 self.lcd.lcd_display_string(">", self.local_cursor+1)
+        elif self.state == "MANUAL":
+            pass
         else:
             print "Invalid state"
 
@@ -369,7 +376,7 @@ class list_object():
     def val(self):
         return self.value
 
-def test():
+def run():
 
     pi = pigpio.pi()
     lcd = gui(pi)
@@ -382,6 +389,7 @@ def test():
     up = 16
     left = 12
     ok = 25
+    man = 22
 
     #motor = md.stepper(pi, 26, 13, 19, 6)
 
@@ -402,6 +410,7 @@ def test():
     pi.callback(up, pigpio.RISING_EDGE, lcd._cbf)
     pi.callback(left, pigpio.RISING_EDGE, lcd._cbf)
     pi.callback(ok, pigpio.RISING_EDGE, lcd._cbf)
+    pi.callback(man, pigpio.EITHER_EDGE, lcd._cbf)
 
     lcd.home_belt()
 
@@ -409,4 +418,4 @@ def test():
         time.sleep(.00001)
 
 if __name__ == "__main__":
-    test()
+    run()
