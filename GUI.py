@@ -14,7 +14,7 @@ class gui:
         dictionary = "dictionary"
         list = "list"
 
-        self.pi = pigpio.pi()
+        self.pi = pi
         self.motor1_enable_pin = 26 #enable pin for turning motor on/off
         self.motor2_enable_pin = 19
 
@@ -40,8 +40,11 @@ class gui:
 
         if self.pi.read(22):
             self.state = "MANUAL"
+            self.pi.write(6, 1)
         else:
             self.state = "HOME" #Start state is manual or "home" depending on initial switch state
+
+        self.teensy.write("3,0,0n")
 
         self.path = [] #Path is used to remember the current "location" in the gui dictionary. Will be a string of values to enter in dictionary
 
@@ -145,7 +148,7 @@ class gui:
         start = self.start
         local_cursor = self.local_cursor
 
-        if self.cursor == len(screen)-1 and command == -1:
+        if self.cursor == len(screen)-1 and command == -1: #Go back to first "level" of screen
             self.cursor = 0
             self.local_cursor = 0
             self.start = 0
@@ -158,7 +161,7 @@ class gui:
                 self.local_cursor -= command
 
         elif self.cursor == 0 and command == 1:
-            self.cursor = len(screen)-17
+            self.cursor = len(screen)-1
             self.local_cursor = self.disp_rows - 1
             self.start = len(screen) - (self.disp_rows)
         elif command == 1:
@@ -233,86 +236,112 @@ class gui:
             dictionary = None
 
     def home_belt(self):
-        self.teensy.write("1,2,0\\n") #Send serial message to teensy to home belt...
+        self.teensy.write("1,2,0n") #Send serial message to teensy to home belt...
 
     def _cbf(self, gpio, level, tick): #level, tick
 
-        if self.pi.read(22):
-            self.state = "MANUAL"
-            command = 0
-        elif gpio == 20:
-            command = -1
-        elif gpio == 16:
-            command = 1
-        elif gpio == 21 or gpio == 25:
-            command = 3
-        elif gpio == 22:
-            if level == 0:
-                self.state = "HOME"
-                command = 0
-            else:
+        if level == 1: #if rising edge...
+            if gpio == 22:
                 self.state = "MANUAL"
-                command = 0 #Case should never occur but "else" statement ensures "command" will have a value...
-        elif gpio == 12:
-            command = 2
-        else:
-            command = 0
-
-        if self.state == "HOME":
-            if command == 1 or command == -1:
-                self.scroll(self.home_screen, command)
-            elif command == 2 or command == -2:
-                pass #Left to go "backwards" in dictionary  if possible. Right to go "forwards" in dictionary if possible.
-            elif command == 3:
-                self.enter()
-                if not callable(self.home_dict[self.home_screen[self.cursor]]):
-                    self.lcd.lcd_display_string("#", self.local_cursor+1)
-        elif self.state == "SCROLLING":
-            if command == 1 or command == -1:
-                [self.state, x] = self.home_dict[self.home_screen[self.cursor]].scroll(command)#Scrolling object always has self.value attribute
-                disp_string = "#"+self.home_screen[self.cursor][1:]+str(x)
-
-                if len(disp_string) < self.disp_cols: #Depends on the width of the screen being used!!!
-                    #flash_string = flash_string + " "*(self.disp_cols-len(disp_string))
-                    disp_string = disp_string + " "*(self.disp_cols-len(disp_string))
-                #self.lcd.lcd_display_string(flash_string, self.local_cursor + 1)
-                self.lcd.lcd_display_string(disp_string, self.local_cursor+1)
-                #self.lcd.lcd_display_string(unichr(0))
-
-            elif command == -2:
-                self.state = "HOME"
-
-            elif command  == 3:
-                self.state = "HOME"
-                if self.home_screen[self.cursor] == " Belt Speed [%]: ":
-                    if self.home_dict[" Direction: "].val() == "REVERSE":
-                        teensy_str = "2,1,"+str(-1*self.home_dict[self.home_screen[self.cursor]].val())+str("\\n")
-                    else:
-                        teensy_str = "2,1," + str(self.home_dict[self.home_screen[self.cursor]].val()) + str("\\n")
-                elif self.home_screen[self.cursor] == " Thickness [\"]:":
-                    teensy_str = "1,1,"+str((4-(self.home_dict[self.home_screen[self.cursor]].val()))*1000)+str("\\n")
-                elif self.home_screen[self.cursor] == " Direction: ":
-                    if self.home_dict[" Direction: "].val() == "REVERSE":
-                        teensy_str = "2,1,"+str(-1*self.home_dict[" Belt Speed [%]: "].val())+str("\\n")
-                    else:
-                        teensy_str = "2,1,"+str(self.home_dict[" Belt Speed [%]: "].val())+str("\\n")
-                else:
-                    teensy_str = ""
-                self.teensy.write(teensy_str)
-                self.lcd.lcd_display_string(">", self.local_cursor+1)
-        elif self.state == "MANUAL":
-            if gpio == 12: #left
-                pass
-            elif gpio == 16: #up
-                pass
-            elif gpio == 21: #right
-                pass
-            elif gpio == 20: #down
-                pass
+                command = 0
+            elif gpio == 20:
+                command = -1
+            elif gpio == 16:
+                command = 1
+            elif gpio == 21 or gpio == 25:
+                command = 3
+            elif gpio == 12:
+                command = 2
             else:
-                pass
+                command = 0
+
+            if self.state == "HOME":
+                if command == 1 or command == -1:
+                    self.scroll(self.home_screen, command)
+                elif command == 2 or command == -2:
+                    pass  # Left to go "backwards" in dictionary  if possible. Right to go "forwards" in dictionary if possible.
+                elif command == 3:
+                    self.enter()
+                    if not callable(self.home_dict[self.home_screen[self.cursor]]):
+                        self.lcd.lcd_display_string("#", self.local_cursor + 1)
+
+            elif self.state == "SCROLLING":
+                if command == 1 or command == -1:
+                    [self.state, x] = self.home_dict[self.home_screen[self.cursor]].scroll(
+                        command)  # Scrolling object always has self.value attribute
+                    disp_string = "#" + self.home_screen[self.cursor][1:] + str(x)
+
+                    if len(disp_string) < self.disp_cols:  # Depends on the width of the screen being used!!!
+                        # flash_string = flash_string + " "*(self.disp_cols-len(disp_string))
+                        disp_string = disp_string + " " * (self.disp_cols - len(disp_string))
+                    # self.lcd.lcd_display_string(flash_string, self.local_cursor + 1)
+                    self.lcd.lcd_display_string(disp_string, self.local_cursor + 1)
+                    # self.lcd.lcd_display_string(unichr(0))
+
+                elif command == -2:
+                    self.state = "HOME"
+
+                elif command == 3:
+                    self.state = "HOME"
+                    if self.home_screen[self.cursor] == " Belt Speed [%]: ":
+                        if self.home_dict[" Direction: "].val() == "REVERSE":
+                            teensy_str = "2,1," + str(-1 * self.home_dict[self.home_screen[self.cursor]].val()) + str(
+                                "n")
+                        else:
+                            teensy_str = "2,1," + str(self.home_dict[self.home_screen[self.cursor]].val()) + str("n")
+                    elif self.home_screen[self.cursor] == " Thickness [\"]:":
+                        teensy_str = "1,1," + str(
+                            (4 - (self.home_dict[self.home_screen[self.cursor]].val())) * 1000) + str("n")
+                    elif self.home_screen[self.cursor] == " Direction: ":
+                        if self.home_dict[" Direction: "].val() == "REVERSE":
+                            teensy_str = "2,1," + str(-1 * self.home_dict[" Belt Speed [%]: "].val()) + str("n")
+                        else:
+                            teensy_str = "2,1," + str(self.home_dict[" Belt Speed [%]: "].val()) + str("n")
+                    else:
+                        teensy_str = ""
+                    self.teensy.write(teensy_str)
+                    self.lcd.lcd_display_string(">", self.local_cursor + 1)
+
+            elif self.state == "MANUAL":
+                if gpio == 12:  # left
+                    self.pi.write(18, level)
+                elif gpio == 16:  # up
+                    self.pi.write(27, level)
+                elif gpio == 21:  # right
+                    self.pi.write(17, level)
+                elif gpio == 20:  # down
+                    self.pi.write(5, level)
+                elif gpio == 22: #Manual switch may bounce too much... consider wiring directly to teensy and pi
+                    self.pi.write(6, level)
+                else:
+                    pass
+
+        elif level == 0: #if falling edge...
+
+            if self.state == "MANUAL": #Send manual commands to teensy if state is manual
+                if gpio == 12:  # left
+                    self.pi.write(18, level)
+                elif gpio == 16:  # up
+                    self.pi.write(27, level)
+                elif gpio == 21:  # right
+                    self.pi.write(17, level)
+                elif gpio == 20:  # down
+                    self.pi.write(5, level)
+                elif gpio == 22: #Manual switch may bounce too much... consider wiring directly to teensy and pi
+                    self.pi.write(6, level)
+                else:
+                    pass
+
+            if gpio == 22: #If
+                self.state = "HOME"
+                self.pi.write(18, 0)
+                self.pi.write(17, 0)
+                self.pi.write(27, 0)
+                self.pi.write(5, 0)
+                self.pi.write(6, 0)
+
         else:
-            print "Invalid state"
+            pass
 
 
 class scroll_object: #Class for creating menu items with "scrollable" input -- For actual implementation need to allow user to hold button and scroll value
@@ -388,10 +417,6 @@ class list_object():
 def run():
 
     pi = pigpio.pi()
-    lcd = gui(pi)
-    lcd.welcome()
-    time.sleep(2.5)
-    lcd.screen_home(lcd.home_screen)
 
     right = 21
     down = 20
@@ -400,33 +425,36 @@ def run():
     ok = 25
     man = 22
 
-    #motor = md.stepper(pi, 26, 13, 19, 6)
-
-    '''pi.set_pull_up_down(right, pigpio.PUD_UP)
-    pi.set_pull_up_down(down, pigpio.PUD_UP)
-    pi.set_pull_up_down(up, pigpio.PUD_UP)
-    pi.set_pull_up_down(left, pigpio.PUD_UP)
-    pi.set_pull_up_down(ok, pigpio.PUD_UP)'''
-
     pi.set_mode(right, pigpio.INPUT)
     pi.set_mode(down, pigpio.INPUT)
     pi.set_mode(up, pigpio.INPUT)
     pi.set_mode(left, pigpio.INPUT)
     pi.set_mode(ok, pigpio.INPUT)
 
-    pi.set_mode(4, pigpio.OUTPUT)
+    pi.set_mode(18, pigpio.OUTPUT)
     pi.set_mode(17, pigpio.OUTPUT)
     pi.set_mode(27, pigpio.OUTPUT)
     pi.set_mode(5, pigpio.OUTPUT)
+    pi.set_mode(6, pigpio.OUTPUT)
 
-    pi.callback(right, pigpio.RISING_EDGE, lcd._cbf)
-    pi.callback(down, pigpio.RISING_EDGE, lcd._cbf)
-    pi.callback(up, pigpio.RISING_EDGE, lcd._cbf)
-    pi.callback(left, pigpio.RISING_EDGE, lcd._cbf)
-    pi.callback(ok, pigpio.RISING_EDGE, lcd._cbf)
-    pi.callback(man, pigpio.EITHER_EDGE, lcd._cbf)
+    pi.write(18, 0)
+    pi.write(17, 0)
+    pi.write(27, 0)
+    pi.write(5, 0)
+    pi.write(6, 0)
 
+    lcd = gui(pi)
+    lcd.welcome()
+    time.sleep(4)
     lcd.home_belt()
+    lcd.screen_home(lcd.home_screen)
+
+    pi.callback(right, pigpio.EITHER_EDGE, lcd._cbf)
+    pi.callback(down, pigpio.EITHER_EDGE, lcd._cbf)
+    pi.callback(up, pigpio.EITHER_EDGE, lcd._cbf)
+    pi.callback(left, pigpio.EITHER_EDGE, lcd._cbf)
+    pi.callback(ok, pigpio.EITHER_EDGE, lcd._cbf)
+    pi.callback(man, pigpio.EITHER_EDGE, lcd._cbf)
 
     while True:
         time.sleep(.00001)
